@@ -1,3 +1,4 @@
+import os
 from typing import *
 import torch
 import torch.nn.functional as F
@@ -5,6 +6,42 @@ from torchvision import transforms
 from transformers import DINOv3ViTModel
 import numpy as np
 from PIL import Image
+
+
+def _resolve_image_cond_model_name(model_name: str) -> str:
+    return (
+        os.environ.get("TRELLIS_IMAGE_COND_MODEL")
+        or os.environ.get("DINOV3_MODEL_NAME")
+        or model_name
+    )
+
+
+def _resolve_hf_token() -> Optional[str]:
+    return os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_HUB_TOKEN")
+
+
+def _load_dinov3_model(model_name: str) -> DINOv3ViTModel:
+    resolved_model_name = _resolve_image_cond_model_name(model_name)
+    token = _resolve_hf_token()
+    kwargs = {}
+    if token:
+        kwargs["token"] = token
+
+    try:
+        return DINOv3ViTModel.from_pretrained(resolved_model_name, **kwargs)
+    except OSError as exc:
+        message = str(exc).lower()
+        if "gated repo" in message or "401 client error" in message or "unauthorized" in message:
+            raise RuntimeError(
+                "TRELLIS could not load the gated DINOv3 image encoder.\n"
+                f"Requested model: {resolved_model_name}\n"
+                "Grant access to the Hugging Face repo and export HF_TOKEN, or set "
+                "TRELLIS_IMAGE_COND_MODEL to a local directory containing the model.\n"
+                "Examples:\n"
+                "  export HF_TOKEN=hf_xxx\n"
+                "  export TRELLIS_IMAGE_COND_MODEL=/AI/TRELLIS.2_rocm/models/dinov3-vitl16-pretrain-lvd1689m"
+            ) from exc
+        raise
 
 
 class DinoV2FeatureExtractor:
@@ -61,8 +98,8 @@ class DinoV3FeatureExtractor:
     Feature extractor for DINOv3 models.
     """
     def __init__(self, model_name: str, image_size=512):
-        self.model_name = model_name
-        self.model = DINOv3ViTModel.from_pretrained(model_name)
+        self.model_name = _resolve_image_cond_model_name(model_name)
+        self.model = _load_dinov3_model(model_name)
         self.model.eval()
         self.image_size = image_size
         self.transform = transforms.Compose([
@@ -79,16 +116,20 @@ class DinoV3FeatureExtractor:
         self.model.cpu()
 
     def extract_features(self, image: torch.Tensor) -> torch.Tensor:
+        # transformers 5.x: DINOv3ViTModel is a backbone, use its forward() directly
+        if hasattr(self.model, 'model'):
+            output = self.model(image)
+            hidden_states = output.last_hidden_state
+            return F.layer_norm(hidden_states, hidden_states.shape[-1:])
+        # older transformers: manual layer iteration
         image = image.to(self.model.embeddings.patch_embeddings.weight.dtype)
         hidden_states = self.model.embeddings(image, bool_masked_pos=None)
         position_embeddings = self.model.rope_embeddings(image)
-
         for i, layer_module in enumerate(self.model.layer):
             hidden_states = layer_module(
                 hidden_states,
                 position_embeddings=position_embeddings,
             )
-
         return F.layer_norm(hidden_states, hidden_states.shape[-1:])
         
     @torch.no_grad()

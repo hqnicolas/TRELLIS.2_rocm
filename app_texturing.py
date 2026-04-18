@@ -145,7 +145,11 @@ with gr.Blocks(delete_cache=(600, 600)) as demo:
 if __name__ == "__main__":
     os.makedirs(TMP_DIR, exist_ok=True)
 
-    pipeline = Trellis2TexturingPipeline.from_pretrained('microsoft/TRELLIS.2-4B', config_file="texturing_pipeline.json")
+    pipeline = Trellis2TexturingPipeline.from_pretrained('camenduru/TRELLIS.2-4B', config_file="texturing_pipeline.json")
     pipeline.cuda()
     
-    demo.launch()
+    demo.launch(
+        server_name=os.environ.get("GRADIO_SERVER_NAME", "127.0.0.1"),
+        server_port=int(os.environ.get("GRADIO_SERVER_PORT", "7861")),
+        share=os.environ.get("GRADIO_SHARE", "false").lower() == "true",
+    )

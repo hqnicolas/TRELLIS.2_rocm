@@ -36,7 +36,7 @@ if __name__ == '__main__':
                         help='Filter objects with aesthetic score lower than this value')
     parser.add_argument('--resolution', type=int, default=1024,
                         help='Sparse voxel resolution')
-    parser.add_argument('--enc_pretrained', type=str, default='microsoft/TRELLIS.2-4B/ckpts/tex_enc_next_dc_f16c32_fp16',
+    parser.add_argument('--enc_pretrained', type=str, default='camenduru/TRELLIS.2-4B/ckpts/tex_enc_next_dc_f16c32_fp16',
                         help='Pretrained encoder model')
     parser.add_argument('--model_root', type=str,
                         help='Root directory of models')

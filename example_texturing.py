@@ -16,7 +16,7 @@ import trimesh
 from PIL import Image
 from trellis2.pipelines import Trellis2TexturingPipeline
 
-pipeline = Trellis2TexturingPipeline.from_pretrained("microsoft/TRELLIS.2-4B", config_file="texturing_pipeline.json")
+pipeline = Trellis2TexturingPipeline.from_pretrained("camenduru/TRELLIS.2-4B", config_file="texturing_pipeline.json")
 pipeline.cuda()
 
 mesh = trimesh.load("assets/example_texturing/the_forgotten_knight.ply")

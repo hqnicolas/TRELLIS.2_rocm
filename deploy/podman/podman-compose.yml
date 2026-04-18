@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+  trellis-rocm:
+    build:
+      context: ../..
+      dockerfile: deploy/podman/Dockerfile
+    image: trellis-rocm72:latest
+    container_name: trellis-rocm72
+    hostname: trellis-rocm72
+    network_mode: "host"
+    ipc: "host"
+    shm_size: "16gb"
+    devices:
+      - /dev/dri:/dev/dri
+      - /dev/kfd:/dev/kfd
+    privileged: true
+    security_opt:
+      - seccomp=unconfined
+      - label=disable
+    cap_add:
+      - SYS_PTRACE
+    group_add:
+      - keep-groups
+    environment:
+      - ROCM_PATH=/opt/rocm
+      - ROCM_HOME=/opt/rocm
+      - TARGET_GFX=${TARGET_GFX:-gfx1100}
+      - GPU_ARCHS=${GPU_ARCHS:-gfx1100}
+      - PYTORCH_ROCM_ARCH=${PYTORCH_ROCM_ARCH:-gfx1100}
+      - HSA_OVERRIDE_GFX_VERSION=${HSA_OVERRIDE_GFX_VERSION:-11.0.0}
+      - FLASH_ATTENTION_TRITON_AMD_ENABLE=${FLASH_ATTENTION_TRITON_AMD_ENABLE:-TRUE}
+      - ATTN_BACKEND=${ATTN_BACKEND:-sdpa}
+      - GRADIO_SERVER_NAME=${GRADIO_SERVER_NAME:-0.0.0.0}
+      - GRADIO_SERVER_PORT=${GRADIO_SERVER_PORT:-7860}
+      - HF_HOME=${HF_HOME:-/AI/TRELLIS.2_rocm/.hf-cache}
+      - HF_HUB_CACHE=${HF_HUB_CACHE:-/AI/TRELLIS.2_rocm/.hf-cache/hub}
+      - HF_TOKEN=${HF_TOKEN:-}
+      - HUGGINGFACE_HUB_TOKEN=${HUGGINGFACE_HUB_TOKEN:-}
+      - TRELLIS_IMAGE_COND_MODEL=${TRELLIS_IMAGE_COND_MODEL:-}
+    stdin_open: true
+    tty: true
+    volumes:
+      - ${TRELLIS_HOST_DIR:-../..}:/AI/TRELLIS.2_rocm
+      - /etc/localtime:/etc/localtime:ro
+    working_dir: /AI/TRELLIS.2_rocm
+    restart: unless-stopped

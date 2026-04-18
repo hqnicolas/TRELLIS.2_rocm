@@ -3,7 +3,7 @@
 # Native and Compact Structured Latents for 3D Generation
 
 <a href="https://arxiv.org/abs/2512.14692"><img src="https://img.shields.io/badge/Paper-Arxiv-b31b1b.svg" alt="Paper"></a>
-<a href="https://huggingface.co/microsoft/TRELLIS.2-4B"><img src="https://img.shields.io/badge/Hugging%20Face-Model-yellow" alt="Hugging Face"></a>
+<a href="https://huggingface.co/camenduru/TRELLIS.2-4B"><img src="https://img.shields.io/badge/Hugging%20Face-Model-yellow" alt="Hugging Face"></a>
 <a href="https://huggingface.co/spaces/microsoft/TRELLIS.2"><img src="https://img.shields.io/badge/Hugging%20Face-Demo-blueviolet"></a>
 <a href="https://microsoft.github.io/TRELLIS.2"><img src="https://img.shields.io/badge/Project-Website-blue" alt="Project Page"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green" alt="License"></a>
@@ -13,6 +13,10 @@ https://github.com/user-attachments/assets/63b43a7e-acc7-4c81-a900-6da450527d8f
 *(Compressed version due to GitHub size limits. See the full-quality video on our project page!)*
 
 **TRELLIS.2** is a state-of-the-art large 3D generative model (4B parameters) designed for high-fidelity **image-to-3D** generation. It leverages a novel "field-free" sparse voxel structure termed **O-Voxel** to reconstruct and generate arbitrary 3D assets with complex topologies, sharp features, and full PBR materials.
+
+> Debian + Podman deployment for ROCm 7.2.2 is documented in [DEPLOY_DEBIAN.md](DEPLOY_DEBIAN.md). That path ships the repo with its root-level `Dependency/` directory and only fetches `flash-attention`, `utils3d`, ROCm Python wheels, and model weights remotely.
+
+> The current inference pipeline also requires access to the gated Hugging Face repo `facebook/dinov3-vitl16-pretrain-lvd1689m`. Export `HF_TOKEN` before startup, or set `TRELLIS_IMAGE_COND_MODEL` to a local copy of that model.
 
 
 ## ✨ Features
@@ -56,56 +60,112 @@ Data processing is streamlined for instant conversions that are fully **renderin
 ## 🛠️ Installation
 
 ### Prerequisites
-- **System**: The code is currently tested only on **Linux**.
-- **Hardware**: An NVIDIA GPU with at least 24GB of memory is necessary. The code has been verified on NVIDIA A100 and H100 GPUs.  
-- **Software**:   
-  - The [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit-archive) is needed to compile certain packages. Recommended version is 12.4.  
-  - [Conda](https://docs.anaconda.com/miniconda/install/#quick-command-line-install) is recommended for managing dependencies.  
-  - Python version 3.8 or higher is required. 
+- **System**: Linux only.
+- **Hardware**: An NVIDIA GPU (verified on A100/H100, 24GB+ recommended) or AMD GPU (verified on RX 9070 XT 16GB under ROCm).
+- **Software**:
+  - **CUDA**: [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit-archive) 12.4 recommended.
+  - **ROCm**: [ROCm](https://rocm.docs.amd.com/en/latest/) 7.2 recommended.
+  - Python 3.10 or higher required.
 
 ### Installation Steps
 1. Clone the repo:
     ```sh
-    git clone -b main https://github.com/microsoft/TRELLIS.2.git --recursive
-    cd TRELLIS.2
+    git clone -b rocm https://github.com/Cardboard-box-a/TRELLIS.2_rocm.git --recursive
+    cd TRELLIS.2_rocm
     ```
 
-2. Install the dependencies:
-    
-    **Before running the following command there are somethings to note:**
-    - By adding `--new-env`, a new conda environment named `trellis2` will be created. If you want to use an existing conda environment, please remove this flag.
-    - By default the `trellis2` environment will use pytorch 2.6.0 with CUDA 12.4. If you want to use a different version of CUDA, you can remove the `--new-env` flag and manually install the required dependencies. Refer to [PyTorch](https://pytorch.org/get-started/previous-versions/) for the installation command.
-    - If you have multiple CUDA Toolkit versions installed, `CUDA_HOME` should be set to the correct version before running the command. For example, if you have CUDA Toolkit 12.4 and 13.0 installed, you can run `export CUDA_HOME=/usr/local/cuda-12.4` before running the command.
-    - By default, the code uses the `flash-attn` backend for attention. For GPUs do not support `flash-attn` (e.g., NVIDIA V100), you can install `xformers` manually and set the `ATTN_BACKEND` environment variable to `xformers` before running the code. See the [Minimal Example](#minimal-example) for more details.
-    - The installation may take a while due to the large number of dependencies. Please be patient. If you encounter any issues, you can try to install the dependencies one by one, specifying one flag at a time.
-    - If you encounter any issues during the installation, feel free to open an issue or contact us.
-    
-    Create a new conda environment named `trellis2` and install the dependencies:
+2. Install PyTorch into your environment **before** running `setup.sh`, or use the Debian + Podman bootstrap script for the supported ROCm container flow. Use the bootstrap matching your platform:
+
+    **CUDA:**
     ```sh
-    . ./setup.sh --new-env --basic --flash-attn --nvdiffrast --nvdiffrec --cumesh --o-voxel --flexgemm
+    pip install torch==2.6.0 torchvision==0.21.0 --index-url https://download.pytorch.org/whl/cu124
     ```
-    The detailed usage of `setup.sh` can be found by running `. ./setup.sh --help`.
+    **ROCm:**
     ```sh
-    Usage: setup.sh [OPTIONS]
-    Options:
-        -h, --help              Display this help message
-        --new-env               Create a new conda environment
-        --basic                 Install basic dependencies
-        --flash-attn            Install flash-attention
-        --cumesh                Install cumesh
-        --o-voxel               Install o-voxel
-        --flexgemm              Install flexgemm
-        --nvdiffrast            Install nvdiffrast
-        --nvdiffrec             Install nvdiffrec
+    bash deploy/podman/install_trellis_rocm.sh
     ```
+
+3. Configure Hugging Face access for inference:
+
+    TRELLIS image-to-3D inference currently loads the gated DINOv3 image encoder `facebook/dinov3-vitl16-pretrain-lvd1689m`.
+
+    **Option A: Use a Hugging Face token**
+    ```sh
+    export HF_TOKEN=hf_xxx
+    ```
+
+    **Option B: Point TRELLIS at a local copy of the DINOv3 model**
+    ```sh
+    export TRELLIS_IMAGE_COND_MODEL=/absolute/path/to/dinov3-vitl16-pretrain-lvd1689m
+    ```
+
+    Notes:
+    - Your Hugging Face account must already have access to the gated DINOv3 repo.
+    - `HF_TOKEN` and `HUGGINGFACE_HUB_TOKEN` are both supported.
+    - `TRELLIS_IMAGE_COND_MODEL` overrides the default repo id and can point to a local model directory.
+
+4. Install the remaining dependencies for manual environments:
+
+    ```sh
+    bash ./setup.sh --basic --flash-attn --nvdiffrast --nvdiffrec --cumesh --o-voxel --flexgemm
+    ```
+
+    Notes:
+    - `setup.sh` auto-detects CUDA vs ROCm and installs the appropriate variants.
+    - All packages including nvdiffrast and nvdiffrec work on both CUDA and ROCm.
+    - The installation may take a while — flash-attention builds from source on ROCm. Install flags one at a time if you hit issues.
+    - Run `bash ./setup.sh --help` for the full list of flags.
+    - If you used `bash deploy/podman/install_trellis_rocm.sh`, you can skip this step because that script already installs the ROCm wheel set and runs `setup.sh` with the recommended flags.
+
+## AMD ROCm Support
+
+This repo includes a Debian-first ROCm deployment path with `gfx1100` defaults for containerized installs. The setup script auto-detects CUDA vs ROCm and installs local dependencies from `./Dependency` when they are bundled in the repo.
+
+### Installation (ROCm)
+
+For the Debian + Podman deployment path, use the dedicated bootstrap script:
+
+```sh
+bash deploy/podman/install_trellis_rocm.sh
+```
+
+### Running
+
+Flash Attention on ROCm requires the Triton backend. Export this before running:
+
+```sh
+export HF_TOKEN=hf_xxx
+export FLASH_ATTENTION_TRITON_AMD_ENABLE="TRUE"
+bash deploy/podman/run_trellis.sh
+```
+
+If you prefer not to use Flash Attention, SDPA (Scaled Dot-Product Attention) is also supported. Set the attention backend before running:
+
+```sh
+export HF_TOKEN=hf_xxx
+export ATTN_BACKEND="sdpa"
+bash deploy/podman/run_trellis.sh
+```
+
+If you are using a local DINOv3 directory instead of a token:
+
+```sh
+export TRELLIS_IMAGE_COND_MODEL=/absolute/path/to/dinov3-vitl16-pretrain-lvd1689m
+bash deploy/podman/run_trellis.sh
+```
+
+### AMD GPU Architecture
+
+The `--flash-attn` step in `setup.sh` compiles for `gfx1100` by default. Override `TARGET_GFX`, `GPU_ARCHS`, `PYTORCH_ROCM_ARCH`, and `HSA_OVERRIDE_GFX_VERSION` if your AMD GPU needs different values. Check your GPU's gfx architecture with `rocminfo | grep gfx`.
+
 
 ## 📦 Pretrained Weights
 
-The pretrained model **TRELLIS.2-4B** is available on Hugging Face. Please refer to the model card there for more details.
+The pretrained model **TRELLIS.2-4B** is available on Hugging Face. Inference also requires the gated DINOv3 image encoder repo `facebook/dinov3-vitl16-pretrain-lvd1689m`, unless you provide a local model directory through `TRELLIS_IMAGE_COND_MODEL`. If startup fails with `401 Client Error`, `Unauthorized`, or `You are trying to access a gated repo`, export `HF_TOKEN` or point `TRELLIS_IMAGE_COND_MODEL` at a local copy before retrying.
 
 | Model | Parameters | Resolution | Link |
 | :--- | :--- | :--- | :--- |
-| **TRELLIS.2-4B** | 4 Billion | 512³ - 1536³ | [Hugging Face](https://huggingface.co/microsoft/TRELLIS.2-4B) |
+| **TRELLIS.2-4B** | 4 Billion | 512³ - 1536³ | [Hugging Face](https://huggingface.co/camenduru/TRELLIS.2-4B) |
 
 
 ## 🚀 Usage
@@ -136,7 +196,7 @@ envmap = EnvMap(torch.tensor(
 ))
 
 # 2. Load Pipeline
-pipeline = Trellis2ImageTo3DPipeline.from_pretrained("microsoft/TRELLIS.2-4B")
+pipeline = Trellis2ImageTo3DPipeline.from_pretrained("camenduru/TRELLIS.2-4B")
 pipeline.cuda()
 
 # 3. Load Image & Run
@@ -177,6 +237,7 @@ Upon execution, the script generates the following files:
 
 [app.py](app.py) provides a simple web demo for image to 3D asset generation. you can run the demo with the following command:
 ```sh
+export HF_TOKEN=hf_xxx
 python app.py
 ```
 
@@ -303,10 +364,12 @@ TRELLIS.2 is built upon several specialized high-performance packages developed 
 
 *   **[O-Voxel](o-voxel):** 
     Core library handling the logic for converting between textured meshes and the O-Voxel representation, ensuring instant bidirectional transformation.
-*   **[FlexGEMM](https://github.com/JeffreyXiang/FlexGEMM):** 
-    Efficient sparse convolution implementation based on Triton, enabling rapid processing of sparse voxel structures.
-*   **[CuMesh](https://github.com/JeffreyXiang/CuMesh):** 
-    CUDA-accelerated mesh utilities used for high-speed post-processing, remeshing, decimation, and UV-unwrapping.
+*   **[FlexGEMM](https://github.com/Cardboard-box-a/FlexGEMM-rocm):** 
+    Efficient sparse convolution implementation based on Triton, enabling rapid processing of sparse voxel structures. This fork adds ROCm/HIP support (ieee precision fix for AMD Triton kernels).
+*   **[CuMesh](https://github.com/Cardboard-box-a/CuMesh):** 
+    CUDA-accelerated mesh utilities used for high-speed post-processing, remeshing, decimation, and UV-unwrapping. This fork includes ROCm/HIP support.
+*   **[nvdiffrast-hip](https://github.com/Cardboard-box-a/nvdiffrast-hip):**
+    HIP/ROCm port of nvdiffrast for AMD GPUs.
 
 
 ## ⚖️ License
@@ -317,7 +380,7 @@ Please note that certain dependencies operate under separate license terms:
 
 - [**nvdiffrast**](https://github.com/NVlabs/nvdiffrast): Utilized for rendering generated 3D assets. This package is governed by its own [License](https://github.com/NVlabs/nvdiffrast/blob/main/LICENSE.txt).
 
-- [**nvdiffrec**](https://github.com/NVlabs/nvdiffrec): Implements the split-sum renderer for PBR materials. This package is governed by its own [License](https://github.com/NVlabs/nvdiffrec/blob/main/LICENSE.txt).
+- [**nvdiffrec**](https://github.com/Cardboard-box-a/nvdiffrec): Implements the split-sum renderer for PBR materials. This fork adds ROCm/HIP support. Governed by its own [License](https://github.com/NVlabs/nvdiffrec/blob/main/LICENSE.txt).
 
 ## 📚 Citation
 

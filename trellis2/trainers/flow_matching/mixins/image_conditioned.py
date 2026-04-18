@@ -1,3 +1,4 @@
+import os
 from typing import *
 import torch
 import torch.nn.functional as F
@@ -7,6 +8,39 @@ import numpy as np
 from PIL import Image
 
 from ....utils import dist_utils
+
+
+def _resolve_image_cond_model_name(model_name: str) -> str:
+    return (
+        os.environ.get("TRELLIS_IMAGE_COND_MODEL")
+        or os.environ.get("DINOV3_MODEL_NAME")
+        or model_name
+    )
+
+
+def _resolve_hf_token() -> Optional[str]:
+    return os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_HUB_TOKEN")
+
+
+def _load_dinov3_model(model_name: str) -> DINOv3ViTModel:
+    resolved_model_name = _resolve_image_cond_model_name(model_name)
+    token = _resolve_hf_token()
+    kwargs = {}
+    if token:
+        kwargs["token"] = token
+
+    try:
+        return DINOv3ViTModel.from_pretrained(resolved_model_name, **kwargs)
+    except OSError as exc:
+        message = str(exc).lower()
+        if "gated repo" in message or "401 client error" in message or "unauthorized" in message:
+            raise RuntimeError(
+                "TRELLIS could not load the gated DINOv3 image encoder.\n"
+                f"Requested model: {resolved_model_name}\n"
+                "Grant access to the Hugging Face repo and export HF_TOKEN, or set "
+                "TRELLIS_IMAGE_COND_MODEL to a local directory containing the model."
+            ) from exc
+        raise
 
 
 class DinoV2FeatureExtractor:
@@ -63,8 +97,8 @@ class DinoV3FeatureExtractor:
     Feature extractor for DINOv3 models.
     """
     def __init__(self, model_name: str, image_size=512):
-        self.model_name = model_name
-        self.model = DINOv3ViTModel.from_pretrained(model_name)
+        self.model_name = _resolve_image_cond_model_name(model_name)
+        self.model = _load_dinov3_model(model_name)
         self.model.eval()
         self.image_size = image_size
         self.transform = transforms.Compose([

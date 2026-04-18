@@ -60,8 +60,8 @@
                 "roughness",
                 "alpha"
             ],
-            "pretrained_pbr_slat_dec": "microsoft/TRELLIS.2-4B/ckpts/tex_dec_next_dc_f16c32_fp16",
-            "pretrained_shape_slat_dec": "microsoft/TRELLIS.2-4B/ckpts/shape_dec_next_dc_f16c32_fp16"
+            "pretrained_pbr_slat_dec": "camenduru/TRELLIS.2-4B/ckpts/tex_dec_next_dc_f16c32_fp16",
+            "pretrained_shape_slat_dec": "camenduru/TRELLIS.2-4B/ckpts/shape_dec_next_dc_f16c32_fp16"
         }
     },
     "trainer": {
@@ -110,7 +110,7 @@
             "image_cond_model": {
                 "name": "DinoV3FeatureExtractor",
                 "args": {
-                    "model_name": "facebook/dinov3-vitl16-pretrain-lvd1689m",
+                    "model_name": "camenduru/dinov3-vitl16-pretrain-lvd1689m",
                     "image_size": 512
                 }
             }

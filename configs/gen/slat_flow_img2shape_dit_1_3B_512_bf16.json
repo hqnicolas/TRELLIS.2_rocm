@@ -40,7 +40,7 @@
                     5.634698, 5.235274, 6.110351, 5.511298, 6.237273, 4.879207, 5.347008, 5.405691
                 ]
             },
-            "pretrained_slat_dec": "microsoft/TRELLIS.2-4B/ckpts/shape_dec_next_dc_f16c32_fp16"
+            "pretrained_slat_dec": "camenduru/TRELLIS.2-4B/ckpts/shape_dec_next_dc_f16c32_fp16"
         }
     },
     "trainer": {
@@ -89,7 +89,7 @@
             "image_cond_model": {
                 "name": "DinoV3FeatureExtractor",
                 "args": {
-                    "model_name": "facebook/dinov3-vitl16-pretrain-lvd1689m",
+                    "model_name": "camenduru/dinov3-vitl16-pretrain-lvd1689m",
                     "image_size": 512
                 }
             }
