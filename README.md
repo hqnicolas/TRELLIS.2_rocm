@@ -85,11 +85,9 @@ Data processing is streamlined for instant conversions that are fully **renderin
     bash deploy/podman/install_trellis_rocm.sh
     ```
 
-3. Configure Hugging Face access for inference:
+3. This Repo don't need to Configure Hugging Face access for inference:
 
-    TRELLIS image-to-3D inference currently loads the gated DINOv3 image encoder `facebook/dinov3-vitl16-pretrain-lvd1689m`.
-
-    **Option A: Use a Hugging Face token**
+    **Option A: Use a Generic Hugging Face token**
     ```sh
     export HF_TOKEN=hf_xxx
     ```
@@ -144,13 +142,6 @@ If you prefer not to use Flash Attention, SDPA (Scaled Dot-Product Attention) is
 ```sh
 export HF_TOKEN=hf_xxx
 export ATTN_BACKEND="sdpa"
-bash deploy/podman/run_trellis.sh
-```
-
-If you are using a local DINOv3 directory instead of a token:
-
-```sh
-export TRELLIS_IMAGE_COND_MODEL=/absolute/path/to/dinov3-vitl16-pretrain-lvd1689m
 bash deploy/podman/run_trellis.sh
 ```
 
